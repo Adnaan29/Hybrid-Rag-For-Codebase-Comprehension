@@ -64,6 +64,18 @@ git remote add origin <YOUR_GITHUB_REPO_URL>
 git branch -M main
 git push -u origin main
 
+# Atomic Commits (Committing files individually)
+git add src\ast_parser\visualize_ast.py
+git commit -m "feat: add AST visualizer script"
+
+git add src\graph\builder.py
+git commit -m "fix: resolve type-check lints in dependency graph"
+
+# Best Practice: Conventional Commits
+# Format: <type>: <description>
+# types: feat, fix, refactor, docs, style, test, chore
+# Example: feat: add multi-hop impact analysis
+
 # Daily work
 git add .
 git commit -m "Describe your changes here"
