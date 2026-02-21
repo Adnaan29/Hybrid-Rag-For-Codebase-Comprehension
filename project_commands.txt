@@ -1,0 +1,67 @@
+================================================================================
+  HYBRID RAG FOR CODEBASES — PROJECT COMMAND REFERENCE
+  Quick guide to run, test, and analyze
+================================================================================
+
+1. ENVIRONMENT SETUP
+--------------------------------------------------------------------------------
+# Activate the virtual environment (Run this every time you start a new terminal)
+.\venv\Scripts\activate
+
+# Update/Install dependencies
+pip install -r requirements.txt
+
+
+2. AST PARSER (src/ast_parser/parser.py)
+--------------------------------------------------------------------------------
+# Test on a single file (prints tables to terminal)
+python src\ast_parser\parser.py data\repos\geoencrypt-pro\backend.py
+python src\ast_parser\parser.py data\repos\flask\src\flask\app.py
+
+# Run on an entire repository (saves scientific results to results/ast_parse_output.json)
+python src\ast_parser\parser.py data\repos\geoencrypt-pro
+python src\ast_parser\parser.py data\repos\flask\src\flask
+
+
+3. DEPENDENCY GRAPH (src/graph/builder.py)
+--------------------------------------------------------------------------------
+# Build the graph and run impact analysis
+# (NOTE: Run the parser on the repo first to generate the necessary JSON data)
+python src\graph\builder.py
+
+# Generate a PNG visualization of the graph
+python src\graph\visualizer.py
+
+# To change which function you are analyzing for impact:
+# Edit the 'target' variable at the bottom of src/graph/builder.py
+
+
+4. REPOSITORY MANAGEMENT
+--------------------------------------------------------------------------------
+# Clone a new repository for testing
+git clone <repo_url> data/repos/<folder_name>
+
+
+5. OUTPUT FILES
+--------------------------------------------------------------------------------
+- results/ast_parse_output.json      -> Raw extracted data (functions, classes, etc.)
+- results/dependency_graph.graphml   -> The full graph (can be opened in Gephi/Cytoscape)
+
+
+================================================================================
+  GIT & GITHUB (Run from project root)
+================================================================================
+# Initial Setup
+git init
+git add .
+git commit -m "Initial commit: AST Parser and Dependency Graph"
+
+# Linking to GitHub (Replace <URL> with your Private repo link)
+git remote add origin <YOUR_GITHUB_REPO_URL>
+git branch -M main
+git push -u origin main
+
+# Daily work
+git add .
+git commit -m "Describe your changes here"
+git push
