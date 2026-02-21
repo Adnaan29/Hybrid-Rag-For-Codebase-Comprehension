@@ -195,7 +195,7 @@ if __name__ == "__main__":
         print(f"Edges: {builder.graph.number_of_edges()}")
         
         # Configuration
-        target_name = 'generate_gps_hash'  # Try: 'decrypt', 'generate_gps_hash', 'extract_key_from_image'
+        target_name = 'make_response'  # Try: 'decrypt', 'generate_gps_hash', 'extract_key_from_image'
         
         # Find target node
         target = None
@@ -204,7 +204,7 @@ if __name__ == "__main__":
                 target = node
                 break
         
-        if target:
+        if target is not None:
             print(f"\n--- ANALYSIS FOR: {target} ---")
             
             # 1. IMPACT (Who depends on me?)

@@ -18,9 +18,12 @@ pip install -r requirements.txt
 python src\ast_parser\parser.py data\repos\geoencrypt-pro\backend.py
 python src\ast_parser\parser.py data\repos\flask\src\flask\app.py
 
-# Run on an entire repository (saves scientific results to results/ast_parse_output.json)
+# Run on an entire repository (saves results to results/ast_parse_output.json)
 python src\ast_parser\parser.py data\repos\geoencrypt-pro
 python src\ast_parser\parser.py data\repos\flask\src\flask
+
+# VISUALIZE RAW AST (Prints the full tree for one file)
+python src\ast_parser\visualize_ast.py data\repos\geoencrypt-pro\backend.py
 
 
 3. DEPENDENCY GRAPH (src/graph/builder.py)
