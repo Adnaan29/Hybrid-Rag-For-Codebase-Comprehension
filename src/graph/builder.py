@@ -152,19 +152,33 @@ class DependencyGraph:
     def get_impact_radius(self, node_name: str, depth: int = 3) -> List[str]:
         """
         Find all nodes affected by a change in node_name (multi-hop).
+        Returns a list of nodes that depend on (call) this node.
         """
         if node_name not in self.graph:
             return []
         
         # Invert the graph to find "who calls me"
         inverted = self.graph.reverse()
-        affected = nx.descendants_at_distance(inverted, node_name, distance=depth)
-        # descendants_at_distance only gives exact distance. We want UP TO distance.
         all_affected = []
         for d in range(1, depth + 1):
             all_affected.extend(nx.descendants_at_distance(inverted, node_name, distance=d))
         
         return list(set(all_affected))
+
+    def get_dependencies(self, node_name: str, depth: int = 1) -> List[str]:
+        """
+        Find all nodes that node_name depends on (forward calls).
+        Returns a list of nodes that this node calls.
+        """
+        if node_name not in self.graph:
+            return []
+        
+        # successors are the nodes this one calls
+        all_deps = []
+        for d in range(1, depth + 1):
+            all_deps.extend(nx.descendants_at_distance(self.graph, node_name, distance=d))
+        
+        return list(set(all_deps))
 
 if __name__ == "__main__":
     import sys
@@ -180,19 +194,36 @@ if __name__ == "__main__":
         print(f"Nodes: {builder.graph.number_of_nodes()}")
         print(f"Edges: {builder.graph.number_of_edges()}")
         
-        # Test impact on GeoEncrypt
-        # Let's find generate_gps_hash
+        # Configuration
+        target_name = 'generate_gps_hash'  # Try: 'decrypt', 'generate_gps_hash', 'extract_key_from_image'
+        
+        # Find target node
         target = None
         for node in builder.graph.nodes():
-            if 'generate_gps_hash' in node:
+            if target_name in node:
                 target = node
                 break
         
         if target:
-            print(f"\nImpact of changing {target}:")
+            print(f"\n--- ANALYSIS FOR: {target} ---")
+            
+            # 1. IMPACT (Who depends on me?)
             impact = builder.get_impact_radius(target)
+            print(f"\n[BACKWARD] Impact of changing this (Who calls me?):")
+            if not impact:
+                print("  (None found - this might be a top-level route or entry point)")
             for node in impact:
-                print(f"  - {node}")
+                # Filter out the file node if you only want functional impacts
+                if builder.graph.nodes[node].get('type') != 'file':
+                    print(f"  ← {node}")
+            
+            # 2. DEPENDENCIES (What do I use?)
+            deps = builder.get_dependencies(target)
+            print(f"\n[FORWARD] Dependencies (What does this function call?):")
+            if not deps:
+                print("  (None found - this might be a leaf function)")
+            for node in deps:
+                print(f"  → {node}")
         
         builder.save_graph("results/dependency_graph.graphml")
     else:
