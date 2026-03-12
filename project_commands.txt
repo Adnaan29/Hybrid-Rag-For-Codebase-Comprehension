@@ -67,6 +67,7 @@ python src\rag\pipeline.py "How does the haversine formula work here?"
 - data/chroma_db/                   -> The persistent vector database
 
 
+
 ================================================================================
   GIT & GITHUB (Run from project root)
 ================================================================================
