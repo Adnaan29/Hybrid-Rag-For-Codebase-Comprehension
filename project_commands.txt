@@ -39,16 +39,32 @@ python src\graph\visualizer.py
 # Edit the 'target' variable at the bottom of src/graph/builder.py
 
 
-4. REPOSITORY MANAGEMENT
+4. SEMANTIC VECTOR INDEX (src/vector/index_builder.py)
 --------------------------------------------------------------------------------
-# Clone a new repository for testing
-git clone <repo_url> data/repos/<folder_name>
+# Build the vector index (chunks code + generates embeddings)
+# (NOTE: Requires OPENAI_API_KEY in .env)
+python src\vector\index_builder.py
 
 
-5. OUTPUT FILES
+5. SEMANTIC SEARCH (src/retrieval/searcher.py)
+--------------------------------------------------------------------------------
+# Run a natural language query against the codebase
+python src\retrieval\searcher.py "How is the GPS hash generated?"
+python src\retrieval\searcher.py "What functions handle base64?" --num 2
+
+
+6. FULL RAG PIPELINE (src/rag/pipeline.py)
+--------------------------------------------------------------------------------
+# Ask a complex question and get a grounded answer from the LLM
+python src\rag\pipeline.py "Explain the encryption flow in backend.py"
+python src\rag\pipeline.py "How does the haversine formula work here?"
+
+
+7. OUTPUT FILES
 --------------------------------------------------------------------------------
 - results/ast_parse_output.json      -> Raw extracted data (functions, classes, etc.)
-- results/dependency_graph.graphml   -> The full graph (can be opened in Gephi/Cytoscape)
+- results/dependency_graph.graphml   -> The full graph
+- data/chroma_db/                   -> The persistent vector database
 
 
 ================================================================================

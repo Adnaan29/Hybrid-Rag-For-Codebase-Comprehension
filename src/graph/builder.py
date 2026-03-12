@@ -195,7 +195,7 @@ if __name__ == "__main__":
         print(f"Edges: {builder.graph.number_of_edges()}")
         
         # Configuration
-        target_name = 'make_response'  # Try: 'decrypt', 'generate_gps_hash', 'extract_key_from_image'
+        target_name = 'add_ctx'  # Try: 'decrypt', 'generate_gps_hash', 'extract_key_from_image'
         
         # Find target node
         target = None
