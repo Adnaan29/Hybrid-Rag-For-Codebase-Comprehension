@@ -5,13 +5,9 @@ tree-sitter-python>=0.25.0
 # Dependency Graph
 networkx>=3.2
 
-# Vector Store
+# RAG & Vector Indexing
 chromadb>=0.4.22
-
-# OpenAI (Embeddings + LLM)
 openai>=1.12.0
-
-# Utilities
 python-dotenv>=1.0.0
 tqdm>=4.66.0
 rich>=13.7.0
