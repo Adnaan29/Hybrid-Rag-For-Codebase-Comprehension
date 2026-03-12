@@ -16,8 +16,8 @@ build/
 .vscode/
 .idea/
 
-# Data (cloned repos are large)
-data/repos/
+# Data & Repos
+data/
 
 # Results (regenerated from experiments)
 results/
