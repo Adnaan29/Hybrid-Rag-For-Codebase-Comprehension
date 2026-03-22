@@ -1,0 +1,70 @@
+================================================================================
+  HYBRID RAG FOR CODEBASE COMPREHENSION — IMPLEMENTATION SPECIFICATION
+================================================================================
+
+This document outlines the true technical specifications of the modules 
+implemented up to Goal 2.
+
+1. SEMANTIC VECTOR INDEXING (Completed)
+================================================================================
+Purpose: Retrieves relevant codebase chunks based on natural language similarity.
+File: src/vector/index_builder.py
+
+- Chunking Granularity: Function and Class level. The AST parses exact line numbers, removing metadata/imports from chunks to keep them pure.
+- Embedding Model: OpenAI's `text-embedding-3-small`.
+- Vector Database: ChromaDB (Persistent local storage).
+- Search Metric: Distance mapping. (Lower distance = higher semantic similarity).
+
+2. STRUCTURAL GRAPH RETRIEVAL (Completed)
+================================================================================
+Purpose: Answers architectural queries (Impact mapping and Dependency tracking) using exact code structures without LLM hallucination.
+Files: src/ast_parser/parser.py, src/graph/builder.py, src/retrieval/graph_searcher.py
+
+A. AST Parsing (tree-sitter)
+----------------------------
+- Generates a Concrete Syntax Tree (CST).
+- Dynamically extracts Function Nodes, Class Nodes, Decorators, and Import paths.
+- Call Resolution: Removes syntactic sugar (e.g., strips "self." from python method calls to match global function definitions).
+
+B. Dependency Graph Construction (NetworkX)
+-------------------------------------------
+- Architecture: Directed Graph (DiGraph).
+- Nodes (V): Files, Classes, Functions.
+- Edges (E): CALLS (Function A -> Function B), CONTAINS (File -> Class).
+- Cross-File Name Resolution Map: Resolves called functions across different files in the repository using the extracted `ImportInfo`. 
+
+C. Graph Search Engine
+----------------------
+1. Target Extraction (Fuzzy Matching): 
+   - Uses `difflib.get_close_matches` utilizing Ratcliff/Obershelp pattern recognition (conceptually related to Levenshtein distance).
+   - Cutoff Threshold: `0.85`. This prevents catastrophic graph misses if a user types "encrypp" instead of "encrypt".
+
+2. Search Direction Heuristic:
+   - Impact (Backward Traversal): Reverses the directed graph (`G^T`) to compute `nx.descendants_at_distance`. Answers "Who calls me?"
+   - Dependency (Forward Traversal): Computes `nx.descendants_at_distance` on the standard graph `G`. Answers "Who do I call?"
+
+3. Mathematical Formulas / Algorithms Employed:
+   - Shortest Path (Exact Call Traces): Uses Breadth-First Search (BFS) natively via `networkx.shortest_path(G, source, target)` to calculate the shortest path in an unweighted directed graph.
+   - Architectural Risk Centrality (In-Degree):
+     Formula: C_in(v) = deg_in(v)
+     (The number of incoming edges pointing to node v).
+     If In-Degree > 5: High Risk (Red)
+     If In-Degree > 2: Medium Risk (Yellow)
+     Else: Low Risk (Green)
+
+3. ORCHESTRATOR CLI (Completed)
+================================================================================
+Purpose: Creates a unified environment to build indexes and run standard comparisons.
+File: cli.py
+
+- Automatically clones GitHub repos securely into local `data/repos`.
+- Orchestrates pipeline builds: triggers `parser.py` (AST) and `index_builder.py` (Embeddings) sequentially.
+- Interactive Search Loop: Runs `searcher.py` and `graph_searcher.py` in tandem for manual visual comparisons.
+
+
+================================================================================
+  NEXT STAGE (GOAL 3): HYBRID FUSION ENGINE 
+================================================================================
+Planned Architecture:
+1. Merge mechanism: Reciprocal Rank Fusion (RRF).
+2. Context Injection: Feed raw strings from `get_context_string_for_llm()` into GPT-4o-mini alongside Vector chunks.
