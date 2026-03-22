@@ -63,8 +63,44 @@ File: cli.py
 
 
 ================================================================================
-  NEXT STAGE (GOAL 3): HYBRID FUSION ENGINE 
+  3. LLM QUERY INTENT ROUTER & ZERO-TOKEN MATCHING (Completed)
 ================================================================================
-Planned Architecture:
-1. Merge mechanism: Reciprocal Rank Fusion (RRF).
-2. Context Injection: Feed raw strings from `get_context_string_for_llm()` into GPT-4o-mini alongside Vector chunks.
+Purpose: Dynamically extracts user intent and targeted code blocks from natural language without rigid regex boundaries.
+File: src/rag/query_router.py
+
+A. Pre-Routing Architecture:
+- Model: GPT-4o-mini (Zero-Shot JSON Extraction).
+- The pipeline intercepts the raw query and returns strict JSON: {"target_nodes": [...], "direction": "backward"|"forward"|"both"}.
+- Prevents the Vector index from polluting the graph search by ensuring the graph ONLY searches architecturally relevant keys.
+
+B. Zero-Token Local Substring Fallback (O(N) Complexity):
+- To prevent devastating context window bloat on massive repositories (e.g., over 50,000 nodes), we DO NOT inject the repository's symbol table into the LLM system prompt.
+- Instead, the LLM runs "blind" (extracting literal short keywords like "split"). 
+- The Graph Searcher then executes a highly optimized O(N) local substring match check (length > 3) against the master `available_names` list in RAM to resolve the LLM's raw intent to fully qualified architectural nodes natively (e.g., "split" securely resolves to "split_key_flexible").
+
+================================================================================
+  4. HYBRID FUSION ENGINE (Completed)
+================================================================================
+Purpose: Simultaneously queries the Vector DB and the Graph Engine, fusing their facts into a single structural block.
+File: src/rag/hybrid_pipeline.py
+
+- Context Injection: Feeds strings from `get_context_string_for_llm()` directly into GPT-4o-mini alongside Vector chunks.
+- The Context Prompt completely restricts the LLM to use Graph Data for all architectural boundaries, and Vector Data exclusively for inline code explanations, fully neutralizing code-structure hallucinations.
+- Modularized into `pipeline.py` (Pure Vector), `graph_pipeline.py` (Pure Structure), and `hybrid_pipeline.py`.
+
+================================================================================
+  5. CLASS INHERITANCE TRACKING (Completed)
+================================================================================
+Purpose: Tracks hierarchical Object-Oriented polymorphism across multiple files.
+File: src/graph/builder.py
+
+- Native AST Modification: Parses the `bases` array of Python Classes during the physical AST traversal phase.
+- Injects a directed edge with property `relation='inherits'` from Child Class -> Parent Class.
+- Allows the native Graph Searcher's `get_impact_radius` to calculate transitive structural breakages downstream if a Parent Class is modified.
+
+================================================================================
+  NEXT STAGES PLANNED
+================================================================================
+1. FastAPI Backend integration for web platform.
+2. User interface with mode selection (Vector / Graph / Hybrid).
+3. Reciprocal Rank Fusion implementation for mathematical context sorting.

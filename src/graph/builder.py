@@ -94,6 +94,18 @@ class DependencyGraph:
                     if callee_node:
                         self.graph.add_edge(caller_node, callee_node, relation='calls')
 
+        # Step 3: Add Inheritance Edges (Improvement 3)
+        for file_data in analyses:
+            rel_path = self._get_repo_rel_path(file_data['file_path'])
+            for cls in file_data.get('classes', []):
+                fq_cls_name = f"{rel_path}:{cls['name']}"
+                for base in cls.get('bases', []):
+                    # Resolve where the base class comes from
+                    base_node = self._resolve_call(rel_path, base)
+                    if base_node:
+                        # This class depends on the base class
+                        self.graph.add_edge(fq_cls_name, base_node, relation='inherits')
+
     def _get_repo_rel_path(self, abs_path: str) -> str:
         # Simple heuristic: find the last 'src' or 'repos' and take everything after
         # In a real system, we'd pass the repo root.

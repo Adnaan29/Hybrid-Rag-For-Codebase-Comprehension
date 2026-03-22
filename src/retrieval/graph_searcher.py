@@ -16,8 +16,9 @@ sys.path.append(str(root_dir))
 
 try:
     from src.graph.builder import DependencyGraph
+    from src.rag.query_router import LLMQueryRouter
 except ImportError:
-    print("Error: Could not import DependencyGraph. Make sure src/graph/builder.py exists.")
+    print("Error: Could not import Project modules. Make sure src/ exists.")
     sys.exit(1)
 
 console = Console()
@@ -38,14 +39,11 @@ def load_graph() -> DependencyGraph:
     builder.build_from_analysis(data)
     return builder
 
-def extract_target_node(query: str, builder: DependencyGraph) -> list[str]:
+def extract_target_node(query: str, builder: DependencyGraph, router_words: list = None) -> list[str]:
     """
     Attempts to map the natural language query to a specific node in the graph 
     using both exact token matching and fuzzy string matching.
     """
-    # Extract words longer than 3 characters to avoid common stop words like "what", "is"
-    words = [w.lower() for w in re.findall(r'\b[a-zA-Z_]\w{3,}\b', query)]
-    
     # Map all human-readable names to their fully qualified node IDs
     name_to_nodes = {}
     for node, data in builder.graph.nodes(data=True):
@@ -58,22 +56,49 @@ def extract_target_node(query: str, builder: DependencyGraph) -> list[str]:
     available_names = list(name_to_nodes.keys())
     potential_nodes = set()
     
-    for word in words:
+    words_to_check = []
+    if router_words and len(router_words) > 0:
+        words_to_check = [w.lower() for w in router_words]
+    else:
+        words_to_check = [w.lower() for w in re.findall(r'\b[a-zA-Z_]\w{3,}\b', query)]
+
+    for word in words_to_check:
         # 1. Exact match check
         if word in name_to_nodes:
             potential_nodes.update(name_to_nodes[word])
         else:
-            # 2. Fuzzy match check (e.g. handles typos or plurals like 'encrypts' -> 'encrypt')
+            # 2. Fuzzy match check
             matches = difflib.get_close_matches(word, available_names, n=2, cutoff=0.85)
             for match in matches:
                 potential_nodes.update(name_to_nodes[match])
+            # 3. Substring check
+            for name in available_names:
+                if len(word) > 3 and word in name.lower():
+                    potential_nodes.update(name_to_nodes[name])
                 
+    # Fallback if LLM router output failed fuzzy matching constraints
+    if not potential_nodes and router_words:
+        fallback_words = [w.lower() for w in re.findall(r'\b[a-zA-Z_]\w{3,}\b', query)]
+        for word in fallback_words:
+            if word in name_to_nodes:
+                potential_nodes.update(name_to_nodes[word])
+            else:
+                matches = difflib.get_close_matches(word, available_names, n=2, cutoff=0.85)
+                for match in matches:
+                    potential_nodes.update(name_to_nodes[match])
+                for name in available_names:
+                    if len(word) > 3 and word in name.lower():
+                        potential_nodes.update(name_to_nodes[name])
+                    
     return list(potential_nodes)
 
-def determine_search_direction(query: str) -> str:
+def determine_search_direction(query: str, router_dir: str = "none") -> str:
     """
     Simple heuristic to determine if the user wants backwards (impact) or forwards (dependencies) search.
     """
+    if router_dir in ["backward", "forward", "both"]:
+        return router_dir
+        
     query_lower = query.lower()
     
     impact_keywords = ['affect', 'change', 'impact', 'modify', 'break', 'calls']
@@ -112,16 +137,20 @@ def run_graph_search(query: str, depth: int = 3):
     Executes a structural search on the Dependency Graph with advanced features.
     """
     try:
-        console.print("[dim]Loading Dependency Graph...[/]")
+        console.print("[dim]Loading Dependency Graph...[/dim]")
         builder = load_graph()
         
-        target_nodes = extract_target_node(query, builder)
+        console.print("[dim]LLM Parsing Query Intent...[/dim]")
+        router = LLMQueryRouter()
+        intent = router.extract_intent(query)
+        
+        target_nodes = extract_target_node(query, builder, router_words=intent.get("target_nodes", []))
         
         if not target_nodes:
             console.print(f"[yellow]Could not find any function or class in the graph matching words in: '{query}'[/]")
             return
             
-        direction = determine_search_direction(query)
+        direction = determine_search_direction(query, router_dir=intent.get("direction", "none"))
         
         for target in target_nodes:
             node_data = builder.graph.nodes[target]

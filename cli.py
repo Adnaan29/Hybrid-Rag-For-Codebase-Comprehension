@@ -88,8 +88,8 @@ def main():
     while True:
         mode = Prompt.ask(
             "[bold green]Select search engine[/]", 
-            choices=["vector", "graph", "both", "exit"], 
-            default="both"
+            choices=["vector", "graph", "hybrid", "both", "exit"], 
+            default="hybrid"
         )
         
         if mode == "exit":
@@ -111,6 +111,10 @@ def main():
         if mode in ["graph", "both"]:
             console.print("[bold black on white] --- STRUCTURAL GRAPH SEARCH RESULTS --- [/]")
             run_cmd([sys.executable, "src/retrieval/graph_searcher.py", query])
+
+        if mode == "hybrid":
+            console.print("[bold black on white] --- FULL HYBRID RAG ENGINE --- [/]")
+            run_cmd([sys.executable, "src/rag/hybrid_pipeline.py", query])
             
         console.print("\n[dim]" + "-"*60 + "[/]\n")
 
