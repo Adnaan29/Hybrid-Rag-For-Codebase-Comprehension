@@ -39,20 +39,42 @@ class HybridRAGPipeline:
         self.router = LLMQueryRouter()
         self.model = model
 
-    def get_graph_context(self, query: str, depth: int = 3) -> str:
+    def get_graph_context(self, query: str, depth: int = 3):
         """
-        Programmatically extracts the graph context strings without printing to console.
+        Programmatically extracts the graph context strings and JSON graph data.
         """
         intent = self.router.extract_intent(query)
         target_nodes = extract_target_node(query, self.graph_builder, router_words=intent.get("target_nodes", []))
+        
+        graph_json = {"nodes": [], "edges": []}
+        added_nodes = set()
+        added_edges = set()
+        
+        def add_node(n):
+            if n not in added_nodes:
+                added_nodes.add(n)
+                data = self.graph_builder.graph.nodes[n] if n in self.graph_builder.graph.nodes else {}
+                graph_json["nodes"].append({
+                    "id": n,
+                    "label": data.get("name", n.split(":")[-1]),
+                    "type": data.get("type", "node"),
+                    "file": data.get("file", "")
+                })
+
+        def add_edge(u, v):
+            edge_id = f"{u}->{v}"
+            if edge_id not in added_edges:
+                added_edges.add(edge_id)
+                graph_json["edges"].append({"source": u, "target": v})
+
         if not target_nodes:
-            return "No structural graph data found for this query."
+            return "No structural graph data found for this query.", graph_json
             
         direction = determine_search_direction(query, router_dir=intent.get("direction", "none"))
         all_graph_contexts = []
         
         for target in target_nodes:
-            # Recompute Risk and Paths programmatically
+            add_node(target)
             in_degree = self.graph_builder.graph.in_degree(target)
             risk = "HIGH" if in_degree > 5 else ("MEDIUM" if in_degree > 2 else "LOW")
             
@@ -62,13 +84,18 @@ class HybridRAGPipeline:
             if direction in ['backward', 'both']:
                 impact = self.graph_builder.get_impact_radius(target, depth=depth)
                 for imp_node in impact:
-                    # Filter out purely file-level topological nodes if any
                     if self.graph_builder.graph.nodes[imp_node].get('type') == 'file': continue
                     try:
-                        path = nx.shortest_path(self.graph_builder.graph, source=imp_node, target=target)
-                        path_str = " -> ".join([p.split(':')[-1] for p in path])
+                        path_nodes = nx.shortest_path(self.graph_builder.graph, source=imp_node, target=target)
+                        path_str = " -> ".join([p.split(':')[-1] for p in path_nodes])
+                        for i in range(len(path_nodes) - 1):
+                            add_node(path_nodes[i])
+                            add_node(path_nodes[i+1])
+                            add_edge(path_nodes[i], path_nodes[i+1])
                     except:
                         path_str = imp_node.split(':')[-1]
+                        add_node(imp_node)
+                        add_edge(imp_node, target)
                     impact_paths_for_llm.append(path_str)
                     
             if direction in ['forward', 'both']:
@@ -76,17 +103,22 @@ class HybridRAGPipeline:
                 for dep_node in deps:
                     if self.graph_builder.graph.nodes[dep_node].get('type') == 'file': continue
                     try:
-                        path = nx.shortest_path(self.graph_builder.graph, source=target, target=dep_node)
-                        path_str = " -> ".join([p.split(':')[-1] for p in path])
+                        path_nodes = nx.shortest_path(self.graph_builder.graph, source=target, target=dep_node)
+                        path_str = " -> ".join([p.split(':')[-1] for p in path_nodes])
+                        for i in range(len(path_nodes) - 1):
+                            add_node(path_nodes[i])
+                            add_node(path_nodes[i+1])
+                            add_edge(path_nodes[i], path_nodes[i+1])
                     except:
                         path_str = dep_node.split(':')[-1]
+                        add_node(dep_node)
+                        add_edge(target, dep_node)
                     dep_paths_for_llm.append(path_str)
             
-            # Format using our robust LLM formatter from graph_searcher
             ctx = get_context_string_for_llm(target, impact_paths_for_llm, dep_paths_for_llm, risk)
             all_graph_contexts.append(ctx)
             
-        return "\n\n".join(all_graph_contexts)
+        return "\n\n".join(all_graph_contexts), graph_json
 
     def answer_query(self, query: str, n_results: int = 5):
         """
@@ -96,18 +128,21 @@ class HybridRAGPipeline:
         
         # 1. Structural Retrieval (Undeniable path truth)
         print("    ↳ Traversing Custom Abstract Syntax Graph...")
-        graph_context = self.get_graph_context(query)
+        graph_context, graph_json = self.get_graph_context(query)
         
         # 2. Semantic Retrieval (Docstrings, logic, fuzzy descriptions)
         print("    ↳ Querying ChromaDB Vector Index...")
         results = self.vector_index.search(query, n_results=n_results)
         
         vector_chunks = []
+        semantic_nodes = []
         for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0])):
             chunk_text = f"--- Source File: {metadata['file']} (Line {metadata['line']}) ---\n{doc}"
             vector_chunks.append(chunk_text)
+            semantic_nodes.append({"file": metadata['file'], "line": metadata['line'], "content": doc})
             
         vector_str = "\n\n".join(vector_chunks)
+        pipeline_data = {"graph_json": graph_json, "semantic_nodes": semantic_nodes}
         
         # 3. Hybrid Prompt Engineering (FUSION)
         system_prompt = (
@@ -151,7 +186,7 @@ USER QUESTION
             temperature=0.2
         )
         
-        return response.choices[0].message.content, results, graph_context
+        return response.choices[0].message.content, results, graph_context, pipeline_data
 
 if __name__ == "__main__":
     import argparse
@@ -168,7 +203,7 @@ if __name__ == "__main__":
     
     try:
         pipeline = HybridRAGPipeline(model=args.model)
-        response, results, graph_ctx = pipeline.answer_query(args.query)
+        response, results, graph_ctx, pipeline_data = pipeline.answer_query(args.query)
         
         console.print("\n[bold green]Hybrid Answer:[/]")
         console.print(Markdown(response))

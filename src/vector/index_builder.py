@@ -37,20 +37,37 @@ class VectorIndex:
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Generate embeddings using OpenAI's latest small model.
+        Generate embeddings using OpenAI's text-embedding-3-small.
+        Splits into batches of 50 to avoid request timeouts and limits.
+        Truncates individual strings to 20,000 characters to stay within 8k token limit.
         """
-        response = self.client.embeddings.create(
-            input=texts,
-            model="text-embedding-3-small"
-        )
-        return [data.embedding for data in response.data]
+        all_embeddings = []
+        batch_size = 50
+        
+        # Truncate logic
+        safe_texts = [t[:20000] if len(t) > 20000 else t for t in texts]
+
+        for i in range(0, len(safe_texts), batch_size):
+            batch = safe_texts[i : i + batch_size]
+            print(f"  > Batch {i//batch_size + 1}/{ (len(safe_texts)-1)//batch_size + 1}")
+            try:
+                response = self.client.embeddings.create(
+                    input=batch,
+                    model="text-embedding-3-small"
+                )
+                all_embeddings.extend([data.embedding for data in response.data])
+            except Exception as e:
+                print(f"Error in batch {i}: {e}")
+                # Fallback zero-filled embeddings for this batch or raise
+                raise e
+        return all_embeddings
 
     def add_chunks(self, chunks: List[Dict[str, Any]]):
         """
         Process and add code chunks to the vector store.
         """
-        if not chunks:
-            print("No chunks to add.")
+        if self.collection.count() > 0:
+            print(f"Collection '{self.collection.name}' already contains {self.collection.count()} items. Skipping indexing.")
             return
 
         ids = [chunk['id'] for chunk in chunks]

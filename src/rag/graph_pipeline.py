@@ -36,47 +36,84 @@ class GraphRAGPipeline:
         self.router = LLMQueryRouter()
         self.model = model
 
-    def get_graph_context(self, query: str, depth: int = 3) -> str:
-        """Extracts the exact graph trace strings securely."""
+    def get_graph_context(self, query: str, depth: int = 3):
+        """Extracts the exact graph trace strings securely and returns JSON structure."""
         intent = self.router.extract_intent(query)
         target_nodes = extract_target_node(query, self.graph_builder, router_words=intent.get("target_nodes", []))
+        
+        graph_json = {"nodes": [], "edges": []}
+        added_nodes = set()
+        added_edges = set()
+        
+        def add_node(n):
+            if n not in added_nodes:
+                added_nodes.add(n)
+                data = self.graph_builder.graph.nodes[n] if n in self.graph_builder.graph.nodes else {}
+                graph_json["nodes"].append({
+                    "id": n,
+                    "label": data.get("name", n.split(":")[-1]),
+                    "type": data.get("type", "node"),
+                    "file": data.get("file", "")
+                })
+
+        def add_edge(u, v):
+            edge_id = f"{u}->{v}"
+            if edge_id not in added_edges:
+                added_edges.add(edge_id)
+                graph_json["edges"].append({"source": u, "target": v})
+
         if not target_nodes:
-            return "No structural graph data found for this query."
+            return "No structural graph data found for this query.", graph_json
             
         direction = determine_search_direction(query, router_dir=intent.get("direction", "none"))
         all_graph_contexts = []
         
         for target in target_nodes:
+            add_node(target)
             in_degree = self.graph_builder.graph.in_degree(target)
             risk = "HIGH" if in_degree > 5 else ("MEDIUM" if in_degree > 2 else "LOW")
             
-            impact_paths = []
-            dep_paths = []
+            impact_paths_for_llm = []
+            dep_paths_for_llm = []
             
             if direction in ['backward', 'both']:
                 impact = self.graph_builder.get_impact_radius(target, depth=depth)
                 for imp_node in impact:
                     if self.graph_builder.graph.nodes[imp_node].get('type') == 'file': continue
                     try:
-                        path_str = " -> ".join([p.split(':')[-1] for p in nx.shortest_path(self.graph_builder.graph, imp_node, target)])
+                        path_nodes = nx.shortest_path(self.graph_builder.graph, source=imp_node, target=target)
+                        path_str = " -> ".join([p.split(':')[-1] for p in path_nodes])
+                        for i in range(len(path_nodes) - 1):
+                            add_node(path_nodes[i])
+                            add_node(path_nodes[i+1])
+                            add_edge(path_nodes[i], path_nodes[i+1])
                     except:
                         path_str = imp_node.split(':')[-1]
-                    impact_paths.append(path_str)
+                        add_node(imp_node)
+                        add_edge(imp_node, target)
+                    impact_paths_for_llm.append(path_str)
                     
             if direction in ['forward', 'both']:
                 deps = self.graph_builder.get_dependencies(target, depth=depth)
                 for dep_node in deps:
                     if self.graph_builder.graph.nodes[dep_node].get('type') == 'file': continue
                     try:
-                        path_str = " -> ".join([p.split(':')[-1] for p in nx.shortest_path(self.graph_builder.graph, target, dep_node)])
+                        path_nodes = nx.shortest_path(self.graph_builder.graph, source=target, target=dep_node)
+                        path_str = " -> ".join([p.split(':')[-1] for p in path_nodes])
+                        for i in range(len(path_nodes) - 1):
+                            add_node(path_nodes[i])
+                            add_node(path_nodes[i+1])
+                            add_edge(path_nodes[i], path_nodes[i+1])
                     except:
                         path_str = dep_node.split(':')[-1]
-                    dep_paths.append(path_str)
+                        add_node(dep_node)
+                        add_edge(target, dep_node)
+                    dep_paths_for_llm.append(path_str)
             
-            ctx = get_context_string_for_llm(target, impact_paths, dep_paths, risk)
+            ctx = get_context_string_for_llm(target, impact_paths_for_llm, dep_paths_for_llm, risk)
             all_graph_contexts.append(ctx)
             
-        return "\n\n".join(all_graph_contexts)
+        return "\n\n".join(all_graph_contexts), graph_json
 
     def answer_query(self, query: str):
         """Executes the Graph-Only Generation limit testing Semantic Blindness."""
@@ -84,7 +121,8 @@ class GraphRAGPipeline:
         
         # 1. Structural Retrieval Only
         print("    ↳ Traversing Custom Abstract Syntax Graph...")
-        graph_context = self.get_graph_context(query)
+        graph_context, graph_json = self.get_graph_context(query)
+        pipeline_data = {"graph_json": graph_json, "semantic_nodes": []}
         
         # 2. Strict Generation Protocol
         system_prompt = (
@@ -109,7 +147,7 @@ class GraphRAGPipeline:
             temperature=0.1
         )
         
-        return response.choices[0].message.content, graph_context
+        return response.choices[0].message.content, graph_context, pipeline_data
 
 if __name__ == "__main__":
     import argparse
@@ -125,7 +163,7 @@ if __name__ == "__main__":
     
     try:
         pipeline = GraphRAGPipeline()
-        answer, graph_ctx = pipeline.answer_query(args.query)
+        answer, graph_ctx, pipeline_data = pipeline.answer_query(args.query)
         
         console.print("\n[bold cyan]=== PURE GRAPH ENGINE ANSWER ===[/]\n")
         console.print(Markdown(answer))
