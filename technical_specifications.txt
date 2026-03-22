@@ -99,8 +99,40 @@ File: src/graph/builder.py
 - Allows the native Graph Searcher's `get_impact_radius` to calculate transitive structural breakages downstream if a Parent Class is modified.
 
 ================================================================================
-  NEXT STAGES PLANNED
+  6. FASTAPI BACKEND & VITE REACT FRONTEND (Completed)
 ================================================================================
-1. FastAPI Backend integration for web platform.
-2. User interface with mode selection (Vector / Graph / Hybrid).
-3. Reciprocal Rank Fusion implementation for mathematical context sorting.
+Purpose: Provides a complete Web Dashboard for Agentic Structural & Semantic Space Exploration.
+Files: api.py, frontend/src/App.jsx, frontend/src/App.css
+
+A. FastAPI Backend (api.py)
+----------------------------
+- Endpoints:
+  - `GET /api/repos`: Scans `data/repos` for dynamically indexed codebases.
+  - `POST /api/repos/clone`: Natively clones GitHub repositories via Git and subprocesses `ACTIVE_REPO` dynamically.
+  - `POST /api/query`: Routes User queries to the Hybrid, Graph, or Vector Python engine based on the UI payload.
+- Environment Isolation: Dynamically injects `os.environ["ACTIVE_REPO"]` before interacting with ChromaDB/NetworkX to prevent multi-tenant data bleed.
+
+B. React/Vite Frontend
+----------------------------
+- Architecture: Component-based state UI, dynamically mapped dropdown menus.
+- UI Style: Glassmorphism layout (`App.css`).
+- Analytical Dashboard: Displays textual LLM answers alongside explicit Context Syntax Badges (Vector metadata line traces).
+
+================================================================================
+  RUN COMMANDS
+================================================================================
+
+To Boot the Backend API Server:
+-------------------------------
+> python api.py
+(Runs on http://localhost:8000. Uses hot-reload natively via Uvicorn).
+
+To Boot the React Web Frontend:
+-------------------------------
+> cd frontend
+> npm run dev
+(Runs on http://localhost:5173).
+
+To Boot the Interactive Orchestrator CLI:
+-----------------------------------------
+> python cli.py

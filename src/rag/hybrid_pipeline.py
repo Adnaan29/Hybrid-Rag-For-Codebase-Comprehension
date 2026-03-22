@@ -168,17 +168,25 @@ if __name__ == "__main__":
     
     try:
         pipeline = HybridRAGPipeline(model=args.model)
-        answer, sources, graph_ctx = pipeline.answer_query(args.query)
+        response, results, graph_ctx = pipeline.answer_query(args.query)
         
-        console.print("\n[bold cyan]=== HYBRID ENGINE ANSWER ===[/]\n")
-        console.print(Markdown(answer))
+        console.print("\n[bold green]Hybrid Answer:[/]")
+        console.print(Markdown(response))
         
+        console.print("\n[bold black on white] Semantic Code Chunks Authenticated: [/]")
+        if results and 'metadatas' in results and len(results['metadatas']) > 0:
+            for m in results['metadatas'][0]:
+                console.print(f"- {m['file']} (L{m['line']})")
+        else:
+            console.print("[dim]No semantic matched code chunks retrieved.[/]")
+            
         console.print("\n[bold yellow]--- Context Sources Successfully Fused ---[/]")
         if "No structural graph data" not in graph_ctx:
             console.print("[green]✓ Included 100% Accurate Structural Call Paths[/]")
         else:
             console.print("[dim]⚠ No Structural Links Found (Fell back to Pure Semantic Vector Search)[/]")
             
-        console.print(f"[green]✓ Included top {len(sources['metadatas'][0])} Semantic Code Chunks[/]")
+        semantic_count = len(results['metadatas'][0]) if results and 'metadatas' in results and results['metadatas'] else 0
+        console.print(f"[green]✓ Included top {semantic_count} Semantic Code Chunks[/]")
     except Exception as e:
         console.print(f"[red]Fatal Error in Hybrid Pipeline: {e}[/]")

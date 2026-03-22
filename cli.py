@@ -60,13 +60,16 @@ def main():
             run_cmd(["git", "clone", repo_input, str(target_dir)])
             
         repo_path = str(target_dir)
+        os.environ["ACTIVE_REPO"] = repo_name
     else:
         repo_path = repo_input
         if not os.path.exists(repo_path):
             console.print(f"[red]Error: The path '{repo_path}' does not exist![/]")
             sys.exit(1)
+        repo_name = Path(repo_path).name
+        os.environ["ACTIVE_REPO"] = repo_name
 
-    console.print(f"\n[green]✅ Target repository set to:[/] {repo_path}")
+    console.print(f"\n[green]✅ Target repository isolated as:[/] {repo_name}")
 
     # -------------------------------------------------------------
     # 2. RUN PIPELINES (AST + VECTOR)

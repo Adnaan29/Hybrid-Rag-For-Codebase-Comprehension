@@ -194,8 +194,9 @@ class DependencyGraph:
 
 if __name__ == "__main__":
     import sys
-    # Load the output from parser
-    results_path = os.path.join("results", "ast_parse_output.json")
+    # Load the output if __name__ == "__main__":
+    active_repo = os.getenv("ACTIVE_REPO", "default")
+    results_path = os.path.join("results", f"{active_repo}_ast.json")
     if os.path.exists(results_path):
         with open(results_path, 'r') as f:
             data = json.load(f)
@@ -239,4 +240,4 @@ if __name__ == "__main__":
         
         builder.save_graph("results/dependency_graph.graphml")
     else:
-        print("Run the parser on a repo first to generate results/ast_parse_output.json")
+        print(f"Run the parser on a repo first to generate results/{active_repo}_ast.json")

@@ -590,7 +590,8 @@ if __name__ == "__main__":
         console.print(f"  Files w/ errors: {files_with_errors}")
 
         # Save full results to JSON
-        output_path = os.path.join(os.path.dirname(__file__), "..", "..", "results", "ast_parse_output.json")
+        active_repo = os.getenv("ACTIVE_REPO", "default")
+        output_path = os.path.join(os.path.dirname(__file__), "..", "..", "results", f"{active_repo}_ast.json")
         output_path = os.path.normpath(output_path)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 

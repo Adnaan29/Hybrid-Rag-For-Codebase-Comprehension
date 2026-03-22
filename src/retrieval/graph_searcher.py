@@ -25,13 +25,17 @@ console = Console()
 
 def load_graph() -> DependencyGraph:
     """Loads the parsed AST data and builds the dependency graph."""
-    results_path = os.path.join(root_dir, "results", "ast_parse_output.json")
+    active_repo = os.getenv("ACTIVE_REPO", "default")
+    results_path = os.path.join(root_dir, "results", f"{active_repo}_ast.json")
     
     if not os.path.exists(results_path):
-        console.print(f"[red]Error: Graph data not found at {results_path}[/]")
-        console.print("[yellow]Please run 'python src/ast_parser/parser.py <repo_dir>' first to generate it.[/]")
-        sys.exit(1)
-        
+        # Fallback to legacy path from earlier implementation
+        legacy_path = os.path.join(root_dir, "results", "ast_parse_output.json")
+        if os.path.exists(legacy_path):
+            results_path = legacy_path
+        else:
+            raise FileNotFoundError(f"Graph data not found for repository '{active_repo}'. Please use the [+ Index Repo] button to build it first.")
+            
     with open(results_path, 'r') as f:
         data = json.load(f)
         

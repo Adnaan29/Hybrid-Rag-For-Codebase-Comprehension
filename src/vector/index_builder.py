@@ -15,19 +15,25 @@ class VectorIndex:
     """
     Handles embedding generation and storage in ChromaDB.
     """
-    def __init__(self, collection_name: str = "codebase_index"):
+    def __init__(self, collection_name: str = None):
         self.api_key = os.getenv("OPENAI_API_KEY")
+        if not collection_name:
+            collection_name = os.getenv("ACTIVE_REPO", "default")
+
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY not found in environment variables.")
             
         self.client = OpenAI(api_key=self.api_key)
         
         # Initialize ChromaDB persistent storage
-        db_path = str(root_dir / "data" / "chroma_db")
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        
-        self.chroma_client = chromadb.PersistentClient(path=db_path)
+        self.chroma_client = chromadb.PersistentClient(path=os.path.join(root_dir, "data", "chroma"))
         self.collection = self.chroma_client.get_or_create_collection(name=collection_name)
+        
+        # Fallback mechanism for legacy repositories indexed under codebase_index
+        if self.collection.count() == 0:
+            legacy = self.chroma_client.get_or_create_collection(name="codebase_index")
+            if legacy.count() > 0:
+                self.collection = legacy
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
@@ -158,7 +164,8 @@ class CodeChunker:
 if __name__ == "__main__":
     # --- Configuration ---
     # Path to the AST analysis output
-    AST_RESULTS = root_dir / "results" / "ast_parse_output.json"
+    active_repo = os.getenv("ACTIVE_REPO", "default")
+    AST_RESULTS = root_dir / "results" / f"{active_repo}_ast.json"
     
     try:
         # 1. Extact chunks from source code using AST metadata
