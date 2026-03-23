@@ -127,6 +127,7 @@ body {
   font-family: var(--font);
   cursor: pointer;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .nav-select option { background: var(--bg-panel); }
@@ -970,6 +971,18 @@ body {
 .ge-legend-item { display: flex; align-items: center; gap: 0.65rem; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; }
 .ge-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .ge-legend-tip { font-size: 0.65rem; color: #6b7280; margin-top: 0.85rem; line-height: 1.5; opacity: 0.7; }
+.ge-legend-focus {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
 .ge-inspector {
   position: absolute; top: 5.5rem; right: 1.5rem; z-index: 200; width: 300px;
   background: rgba(18,18,22,0.92); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1);

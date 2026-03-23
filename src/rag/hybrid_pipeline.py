@@ -156,6 +156,7 @@ class HybridRAGPipeline:
             "- Use the SEMANTIC SOURCE CODE to explain *how* things work inside the functions.\n"
             "- Warn the user immediately if the item they are changing has a HIGH Architectural Risk Factor.\n"
             "- Always cite your claims by referencing the File Names and exact Call Paths.\n"
+            "- Make sure to adequately answer the user query and provide a professional response.\n"
             "- Do not hallucinate dependencies that are not in the STRUCTURAL GRAPH DATA. The graph is the absolute authority on architecture.\n"
         )
         

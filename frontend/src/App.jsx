@@ -29,6 +29,7 @@ function GraphExplorer({ initialRepo, initialType }) {
   const [loading, setLoading]              = useState(true);
   const [inspectedNode, setInspectedNode]  = useState(null);
   const graphRef                           = useRef(null);
+  const connectedRef                       = useRef(null); // { nodeId, incoming: Set, outgoing: Set }
   const [dim, setDim]                      = useState({ w: window.innerWidth, h: window.innerHeight });
 
   useEffect(() => {
@@ -64,29 +65,131 @@ function GraphExplorer({ initialRepo, initialType }) {
     } catch(e) {}
   }, [data, type]);
 
+  /* Rebuild connected set whenever selected node changes */
+  useEffect(() => {
+    if (!inspectedNode) { connectedRef.current = null; return; }
+    const incoming = new Set();
+    const outgoing = new Set();
+    data.links.forEach(l => {
+      const src = typeof l.source === 'object' ? l.source.id : l.source;
+      const tgt = typeof l.target === 'object' ? l.target.id : l.target;
+      if (src === inspectedNode.id) outgoing.add(tgt);
+      if (tgt === inspectedNode.id) incoming.add(src);
+    });
+    connectedRef.current = { nodeId: inspectedNode.id, incoming, outgoing };
+  }, [inspectedNode, data.links]);
+
+  /* ── paintNode — dim non-connected, enlarge selected —————— */
   const paintNode = useCallback((node, ctx, scale) => {
     try {
-      const label = node.label || node.id || '?';
-      const fs    = Math.min(Math.max(13 / scale, 10 / scale), 24);
-      ctx.font    = `600 ${fs}px Inter,sans-serif`;
-      const r     = 7;
-      const tw    = ctx.measureText(label).width;
-      const lw    = tw + 8; const lh = fs + 6; const yo = r + fs * 1.6;
+      const conn       = connectedRef.current;
+      const isSelected = conn && node.id === conn.nodeId;
+      const isIn       = conn && conn.incoming.has(node.id);
+      const isOut      = conn && conn.outgoing.has(node.id);
+      const dimmed     = conn && !isSelected && !isIn && !isOut;
+
+      const label  = node.label || node.id || '?';
+      const fs     = Math.min(Math.max(13 / scale, 10 / scale), 24);
+      ctx.font     = `600 ${fs}px Inter,sans-serif`;
+      const r      = isSelected ? 11 : 7;
+      const tw     = ctx.measureText(label).width;
+      const lw     = tw + 8; const lh = fs + 6; const yo = r + fs * 1.6;
+
+      ctx.globalAlpha = dimmed ? 0.15 : 1;
+
+      /* Node circle */
       ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = COLORS[node.type] || '#fff'; ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = isSelected
+        ? '#fff'
+        : isIn  ? '#4ade80'
+        : isOut ? '#f472b6'
+        : COLORS[node.type] || '#fff';
+      ctx.fill();
+
+      /* Glow ring for selected */
+      if (isSelected) {
+        ctx.shadowColor  = '#fff';
+        ctx.shadowBlur   = 20;
+        ctx.strokeStyle  = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth    = 2;
+        ctx.stroke();
+        ctx.shadowBlur   = 0;
+      } else if (isIn || isOut) {
+        ctx.strokeStyle = isIn ? '#4ade80' : '#f472b6';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+      }
+
+      /* Label */
       if (scale > 0.35) {
-        ctx.fillStyle = 'rgba(8,8,12,0.88)';
+        ctx.fillStyle = dimmed ? 'rgba(8,8,12,0.4)' : 'rgba(8,8,12,0.88)';
         ctx.beginPath();
         ctx.roundRect?.(node.x - lw / 2, node.y + yo - lh / 2, lw, lh, 4);
         ctx.fill();
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#f3f4f6';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle    = dimmed ? 'rgba(243,244,246,0.3)' : '#f3f4f6';
         ctx.fillText(label, node.x, node.y + yo);
       }
+
+      ctx.globalAlpha      = 1;
       node.__bckgDimensions = [lw, lh, yo];
     } catch(e) {}
-  }, []);
+  }, [inspectedNode]);
+
+  /* ── Link helpers ————————————————————————————— */
+  const getLinkSrcTgt = l => ({
+    src: typeof l.source === 'object' ? l.source.id : l.source,
+    tgt: typeof l.target === 'object' ? l.target.id : l.target,
+  });
+
+  const linkColor = useCallback(l => {
+    const conn = connectedRef.current;
+    if (!conn) return 'rgba(255,255,255,0.10)';
+    const { src, tgt } = getLinkSrcTgt(l);
+    if (src === conn.nodeId) return 'rgba(244,114,182,0.85)';
+    if (tgt === conn.nodeId) return 'rgba(74,222,128,0.85)';
+    return 'rgba(255,255,255,0.03)';
+  }, [inspectedNode]);
+
+  const linkWidth = useCallback(l => {
+    const conn = connectedRef.current;
+    if (!conn) return 0.8;
+    const { src, tgt } = getLinkSrcTgt(l);
+    return (src === conn.nodeId || tgt === conn.nodeId) ? 2 : 0.25;
+  }, [inspectedNode]);
+
+  /* NEVER return 0 — it permanently kills that edge's particle animation.
+     Keep all particles alive; use transparent color to hide unrelated ones. */
+  const linkParticles = useCallback(_l => {
+    return type === 'query' ? 4 : 2;
+  }, [type]);
+
+  const linkParticleWidth = useCallback(l => {
+    const conn = connectedRef.current;
+    if (!conn) return 2;
+    const { src, tgt } = getLinkSrcTgt(l);
+    return (src === conn.nodeId || tgt === conn.nodeId) ? 4 : 1.5;
+  }, [inspectedNode]);
+
+  /* Hide unrelated particles via transparent color, not zero count */
+  const linkParticleColor = useCallback(l => {
+    const conn = connectedRef.current;
+    if (!conn) return 'rgba(255,255,255,0.55)';
+    const { src, tgt } = getLinkSrcTgt(l);
+    if (src === conn.nodeId) return '#f472b6';
+    if (tgt === conn.nodeId) return '#4ade80';
+    return 'rgba(0,0,0,0)';
+  }, [inspectedNode]);
+
+  const handleNodeClick = n => {
+    /* Clicking same node deselects */
+    setInspectedNode(prev => prev?.id === n.id ? null : n);
+  };
 
   const inDeg  = n => data.links.filter(l => (typeof l.target === 'object' ? l.target.id : l.target) === n.id).length;
   const outDeg = n => data.links.filter(l => (typeof l.source === 'object' ? l.source.id : l.source) === n.id).length;
@@ -112,7 +215,7 @@ function GraphExplorer({ initialRepo, initialType }) {
         <div className="ge-loading-overlay">
           <RefreshCw className="spinning" size={52} style={{ color: 'var(--primary)' }}/>
           <h2 style={{ marginTop: '1.5rem', letterSpacing: '1px', fontSize: '1.3rem' }}>RECONSTRUCTING TOPOLOGY…</h2>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.85rem' }}>Traversing AST relationships and call graphs.</p>
+          <p style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.85rem' }}>Traversing AST relationships and call graphs.</p>
         </div>
       )}
 
@@ -121,7 +224,13 @@ function GraphExplorer({ initialRepo, initialType }) {
         {[['#4ade80', 'Function / Entity'], ['#f472b6', 'Object / Class'], ['#9ca3af', 'Source File']].map(([color, label]) => (
           <div key={label} className="ge-legend-item"><span className="ge-legend-dot" style={{ background: color }}/>{label}</div>
         ))}
-        <div className="ge-legend-tip">Scroll → Zoom · Drag → Pan · Click → Inspect</div>
+        <div className="ge-legend-tip">Click node to focus paths · Click again to deselect</div>
+        {inspectedNode && (
+          <div className="ge-legend-focus">
+            <span style={{ color:'#4ade80' }}>●</span> Incoming
+            <span style={{ color:'#f472b6' }}>●</span> Outgoing
+          </div>
+        )}
       </div>
 
       <ForceGraph2D
@@ -130,13 +239,17 @@ function GraphExplorer({ initialRepo, initialType }) {
         nodePointerAreaPaint={(n, color, ctx) => {
           const d = n.__bckgDimensions; if (!d) return;
           ctx.fillStyle = color;
-          ctx.beginPath(); ctx.arc(n.x, n.y, 7, 0, 2 * Math.PI); ctx.fill();
+          ctx.beginPath(); ctx.arc(n.x, n.y, 11, 0, 2 * Math.PI); ctx.fill();
           ctx.fillRect(n.x - d[0] / 2, n.y + d[2] - d[1] / 2, d[0], d[1]);
         }}
-        linkColor={() => COLORS.link} linkWidth={0.8}
-        linkDirectionalParticles={type === 'query' ? 4 : 2}
-        linkDirectionalParticleSpeed={0.005} linkDirectionalParticleWidth={2}
-        onNodeClick={n => setInspectedNode(n)} backgroundColor="#0a0a0c"
+        linkColor={linkColor}
+        linkWidth={linkWidth}
+        linkDirectionalParticles={linkParticles}
+        linkDirectionalParticleSpeed={0.006}
+        linkDirectionalParticleWidth={linkParticleWidth}
+        linkDirectionalParticleColor={linkParticleColor}
+        onNodeClick={handleNodeClick}
+        backgroundColor="#0a0a0c"
       />
 
       <AnimatePresence>
