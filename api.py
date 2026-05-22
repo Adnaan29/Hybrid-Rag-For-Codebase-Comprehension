@@ -131,9 +131,10 @@ def run_query(req: QueryRequest):
             pipeline_data = p_data
         elif req.mode == "vector":
             pipeline = RAGPipeline()
-            answer, sources = pipeline.answer_query(req.query)
+            answer, sources, p_data = pipeline.answer_query(req.query)
             if sources and 'metadatas' in sources and len(sources['metadatas']) > 0:
                 metadata = sources['metadatas'][0]
+            pipeline_data = p_data
         else:
             raise HTTPException(status_code=400, detail="Mode must be 'hybrid', 'graph', or 'vector'")
             

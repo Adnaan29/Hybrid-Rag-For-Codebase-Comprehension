@@ -122,7 +122,11 @@ class GraphRAGPipeline:
         # 1. Structural Retrieval Only
         print("    ↳ Traversing Custom Abstract Syntax Graph...")
         graph_context, graph_json = self.get_graph_context(query)
-        pipeline_data = {"graph_json": graph_json, "semantic_nodes": []}
+        pipeline_data = {
+            "graph_json": graph_json, 
+            "semantic_nodes": [],
+            "graph_context": graph_context
+        }
         
         # 2. Strict Generation Protocol
         system_prompt = (

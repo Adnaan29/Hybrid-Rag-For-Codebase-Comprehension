@@ -36,11 +36,14 @@ class RAGPipeline:
         results = self.vector_index.search(query, n_results=n_results)
         
         context_chunks = []
+        semantic_nodes = []
         for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0])):
             chunk_text = f"--- Chunk {i+1} (Source: {metadata['file']}, Line {metadata['line']}) ---\n{doc}"
             context_chunks.append(chunk_text)
+            semantic_nodes.append({"file": metadata['file'], "line": metadata['line'], "content": doc})
         
         context_str = "\n\n".join(context_chunks)
+        pipeline_data = {"semantic_nodes": semantic_nodes}
 
         # 2. GENERATION (Strict adherence to provided context)
         system_prompt = (
@@ -66,7 +69,7 @@ class RAGPipeline:
             temperature=0
         )
         
-        return response.choices[0].message.content, results
+        return response.choices[0].message.content, results, pipeline_data
 
 if __name__ == "__main__":
     import argparse
@@ -83,7 +86,7 @@ if __name__ == "__main__":
     
     try:
         pipeline = RAGPipeline(model=args.model)
-        answer, sources = pipeline.answer_query(args.query)
+        answer, sources, pipeline_data = pipeline.answer_query(args.query)
         
         console.print("\n[bold cyan]=== RAG ANSWER ===[/]\n")
         console.print(Markdown(answer))

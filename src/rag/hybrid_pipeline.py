@@ -142,7 +142,11 @@ class HybridRAGPipeline:
             semantic_nodes.append({"file": metadata['file'], "line": metadata['line'], "content": doc})
             
         vector_str = "\n\n".join(vector_chunks)
-        pipeline_data = {"graph_json": graph_json, "semantic_nodes": semantic_nodes}
+        pipeline_data = {
+            "graph_json": graph_json, 
+            "semantic_nodes": semantic_nodes,
+            "graph_context": graph_context
+        }
         
         # 3. Hybrid Prompt Engineering (FUSION)
         system_prompt = (

@@ -640,7 +640,7 @@ function App() {
                       <Layout size={13}/> AI Insight
                     </button>
                     <button className={`answer-tab ${activeTab === 'sources' ? 'on' : ''}`} onClick={() => setActiveTab('sources')}>
-                      <Braces size={13}/> Sources ({pipelineData?.semantic_nodes?.length || 0})
+                      <Braces size={13}/> Sources ({(pipelineData?.semantic_nodes?.length || 0) + (pipelineData?.graph_context && pipelineData.graph_context !== "No structural graph data found for this query." ? 1 : 0)})
                     </button>
                   </div>
 
@@ -664,6 +664,16 @@ function App() {
                     </div>
                   ) : (
                     <div className="sources-list">
+                      {pipelineData?.graph_context && pipelineData.graph_context !== "No structural graph data found for this query." && (
+                        <div className="source-card" style={{ borderLeft: '3px solid #f472b6' }}>
+                          <div className="source-card-header">
+                            <div className="source-card-file"><Network size={13}/> Structural Call Path (AST)</div>
+                            <div className="source-card-line">Architectural Trace</div>
+                          </div>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{`\`\`\`text\n${pipelineData.graph_context}\n\`\`\``}</ReactMarkdown>
+                        </div>
+                      )}
+                      
                       {pipelineData?.semantic_nodes?.length ? pipelineData.semantic_nodes.map((node, i) => (
                         <div key={i} className="source-card">
                           <div className="source-card-header">
@@ -673,7 +683,9 @@ function App() {
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{`\`\`\`python\n${node.content}\n\`\`\``}</ReactMarkdown>
                         </div>
                       )) : (
-                        <div className="sources-empty">No source chunks retrieved for this query.</div>
+                        (!pipelineData?.graph_context || pipelineData.graph_context === "No structural graph data found for this query.") && (
+                          <div className="sources-empty">No source chunks retrieved for this query.</div>
+                        )
                       )}
                     </div>
                   )}
