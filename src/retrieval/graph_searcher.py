@@ -136,7 +136,7 @@ def get_context_string_for_llm(node_name: str, impact_paths: list, dep_paths: li
             ctx += f"  - {p}\n"
     return ctx
 
-def run_graph_search(query: str, depth: int = 3):
+def run_graph_search(query: str, depth: int = 5):
     """
     Executes a structural search on the Dependency Graph with advanced features.
     """
@@ -245,7 +245,7 @@ def run_graph_search(query: str, depth: int = 3):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Structural graph search using AST dependency graph.")
     parser.add_argument("query", type=str, help="The question (e.g., 'What breaks if I change authenticate?')")
-    parser.add_argument("-d", "--depth", type=int, default=3, help="Max depth (hops) to traverse the graph.")
+    parser.add_argument("-d", "--depth", type=int, default=5, help="Max depth (hops) to traverse the graph.")
     
     args = parser.parse_args()
     run_graph_search(args.query, depth=args.depth)

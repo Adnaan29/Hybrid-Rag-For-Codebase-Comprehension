@@ -39,7 +39,7 @@ class HybridRAGPipeline:
         self.router = LLMQueryRouter()
         self.model = model
 
-    def get_graph_context(self, query: str, depth: int = 3):
+    def get_graph_context(self, query: str, depth: int = 5):
         """
         Programmatically extracts the graph context strings and JSON graph data.
         """

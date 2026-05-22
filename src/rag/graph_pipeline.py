@@ -36,7 +36,7 @@ class GraphRAGPipeline:
         self.router = LLMQueryRouter()
         self.model = model
 
-    def get_graph_context(self, query: str, depth: int = 3):
+    def get_graph_context(self, query: str, depth: int = 5):
         """Extracts the exact graph trace strings securely and returns JSON structure."""
         intent = self.router.extract_intent(query)
         target_nodes = extract_target_node(query, self.graph_builder, router_words=intent.get("target_nodes", []))

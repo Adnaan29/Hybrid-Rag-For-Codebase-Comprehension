@@ -161,7 +161,7 @@ class DependencyGraph:
         nx.write_graphml(self.graph, path)
         print(f"Graph saved to {path}")
 
-    def get_impact_radius(self, node_name: str, depth: int = 3) -> List[str]:
+    def get_impact_radius(self, node_name: str, depth: int = 5) -> List[str]:
         """
         Find all nodes affected by a change in node_name (multi-hop).
         Returns a list of nodes that depend on (call) this node.
@@ -177,7 +177,7 @@ class DependencyGraph:
         
         return list(set(all_affected))
 
-    def get_dependencies(self, node_name: str, depth: int = 1) -> List[str]:
+    def get_dependencies(self, node_name: str, depth: int = 5) -> List[str]:
         """
         Find all nodes that node_name depends on (forward calls).
         Returns a list of nodes that this node calls.
